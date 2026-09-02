@@ -12,7 +12,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-[#f7f4ee]/90 backdrop-blur-xl">
       <div className="container-shop flex h-20 items-center justify-between">
-        <Link href="/" className="text-xl font-black tracking-[-0.05em]">NEXORA<span className="text-gold">.</span></Link>
+        <Link href="/" className="text-xl font-black tracking-[-0.05em]">ONECLICK<span className="text-gold">.</span></Link>
         <nav className="hidden items-center gap-8 md:flex">{links.map((link) => <Link key={link.href} href={link.href} className="text-sm font-medium text-neutral-600 transition hover:text-black">{link.label}</Link>)}</nav>
         <div className="flex items-center gap-2">
           <Link href="/shop" aria-label="Search" className="hidden rounded-full p-3 hover:bg-white md:block"><Search size={18} /></Link>
