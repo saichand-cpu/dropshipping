@@ -11,5 +11,7 @@ export type Product = {
   reviewCount: number;
   badge?: string;
   inStock: boolean;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
   featured?: boolean;
 };
