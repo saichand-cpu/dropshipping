@@ -7,7 +7,8 @@ type CartItem = Product & { quantity: number };
 type CartContextValue = { items: CartItem[]; itemCount: number; subtotal: number; addItem: (product: Product) => void; removeItem: (id: string) => void; setQuantity: (id: string, quantity: number) => void; clearCart: () => void };
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "nexora-cart-v1";
+const STORAGE_KEY = "oneclick-cart-v1";
+const LEGACY_STORAGE_KEY = "nexora-cart-v1";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -15,10 +16,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setItems(JSON.parse(saved));
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (saved) {
+        setItems(JSON.parse(saved));
+        if (!localStorage.getItem(STORAGE_KEY)) localStorage.setItem(STORAGE_KEY, saved);
+      }
     } catch {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     } finally {
       setHydrated(true);
     }
