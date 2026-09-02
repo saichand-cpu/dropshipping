@@ -5,12 +5,17 @@ import { ArrowLeft, Box, ClipboardList, IndianRupee, Package, ShoppingBag, Truck
 import { useEffect, useMemo, useState } from "react";
 import { products } from "@/data/products";
 import { formatCurrency } from "@/lib/utils";
+import { AdminGuard } from "@/components/admin-guard";
 
 const ORDERS_KEY = "oneclick-orders-v1";
 
 type Order = { orderNumber: string; total: number; status: string; paymentStatus: string; createdAt: string; items: { quantity: number }[]; customer: { name: string; email: string; phone: string }; };
 
 export default function AdminPage() {
+  return <AdminGuard><AdminDashboard /></AdminGuard>;
+}
+
+function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("all");
 
@@ -25,7 +30,7 @@ export default function AdminPage() {
 
   return <main className="container-shop py-10 sm:py-14">
     <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="eyebrow">ONECLICK control center</p><h1 className="mt-2 text-4xl font-black tracking-tight">Admin dashboard</h1><p className="mt-3 text-neutral-500">Store overview and local order management.</p></div><Link href="/" className="btn-secondary"><ArrowLeft size={16}/> Storefront</Link></div>
-    <div className="mt-8 rounded-2xl border border-black/5 bg-white p-4 text-sm text-neutral-500 shadow-sm"><strong className="text-black">Development dashboard:</strong> this version reads the demo orders saved in the browser. Supabase-backed admin actions will be enabled when the production server is connected.</div>
+    <div className="mt-8 rounded-2xl border border-black/5 bg-white p-4 text-sm text-neutral-500 shadow-sm"><strong className="text-black">Development dashboard:</strong> this version reads the demo orders saved in the browser. Supabase-backed order and product management will be enabled with the database integration.</div>
 
     <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Stat icon={<IndianRupee size={18}/>} label="Order value" value={formatCurrency(revenue)}/>
