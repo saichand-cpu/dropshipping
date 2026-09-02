@@ -13,6 +13,8 @@ button, input, select { font: inherit; }
 @layer components {
   .container-shop { @apply mx-auto w-full max-w-7xl px-5 sm:px-8; }
   .eyebrow { @apply text-[11px] font-semibold uppercase tracking-[0.28em] text-neutral-500; }
-  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-neutral-800; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0; }
   .btn-secondary { @apply inline-flex items-center justify-center gap-2 rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:border-ink; }
+  .field-label { @apply mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-500; }
+  .input-shop { @apply w-full rounded-2xl border border-neutral-200 bg-[#faf9f6] px-4 py-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-ink focus:bg-white focus:ring-2 focus:ring-black/5; }
 }
