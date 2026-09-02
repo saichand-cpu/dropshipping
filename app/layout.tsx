@@ -5,8 +5,8 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 
 export const metadata: Metadata = {
-  title: "NEXORA — Curated finds, delivered simply",
-  description: "A premium modern storefront for carefully selected everyday products.",
+  title: "ONECLICK — Better finds. Less searching.",
+  description: "ONECLICK is a modern dropshipping store for useful, stylish and affordable everyday products.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
