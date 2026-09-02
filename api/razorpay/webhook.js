@@ -1,13 +1,11 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
-// Razorpay signs the exact raw request body, so body parsing must stay disabled.
-module.exports.config = { api: { bodyParser: false } };
-
 function json(res, status, body) {
   res.status(status).json(body);
 }
 
+// Razorpay signs the exact raw request body, so body parsing must stay disabled.
 async function readRawBody(req) {
   if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
   if (typeof req.body === 'string') return req.body;
@@ -17,7 +15,7 @@ async function readRawBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
 
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -32,29 +30,40 @@ module.exports = async function handler(req, res) {
     const rawBody = await readRawBody(req);
     const signature = req.headers['x-razorpay-signature'];
 
-    if (!signature) return json(res, 400, { error: 'Missing webhook signature.' });
+    if (!signature || Array.isArray(signature)) {
+      return json(res, 400, { error: 'Missing webhook signature.' });
+    }
 
     const expected = crypto
       .createHmac('sha256', webhookSecret)
       .update(rawBody)
       .digest('hex');
 
-    const valid = crypto.timingSafeEqual(
-      Buffer.from(signature, 'utf8'),
-      Buffer.from(expected, 'utf8')
-    );
+    const receivedBuffer = Buffer.from(signature, 'utf8');
+    const expectedBuffer = Buffer.from(expected, 'utf8');
 
-    if (!valid) return json(res, 401, { error: 'Invalid webhook signature.' });
+    if (
+      receivedBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+    ) {
+      return json(res, 401, { error: 'Invalid webhook signature.' });
+    }
 
     const event = JSON.parse(rawBody);
     const payment = event?.payload?.payment?.entity;
-    if (!payment?.id) return json(res, 200, { received: true });
+    const razorpayOrderId = payment?.order_id;
+
+    // Ignore events that are validly signed but do not contain a payment entity
+    // or a Razorpay order ID that this application can associate with an order.
+    if (!payment?.id || !razorpayOrderId) {
+      return json(res, 200, { received: true, ignored: true });
+    }
 
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const update = { payment_id: payment.id, payment_provider: 'razorpay' };
+    const update = { payment_provider: 'razorpay' };
 
     if (event.event === 'payment.captured' || event.event === 'order.paid') {
       update.payment_status = 'paid';
@@ -65,22 +74,35 @@ module.exports = async function handler(req, res) {
       update.payment_status = 'refunded';
       update.status = 'refunded';
     } else {
-      return json(res, 200, { received: true });
+      return json(res, 200, { received: true, ignored: true });
     }
 
-    const { error } = await admin
+    // create-order stores Razorpay's order_... ID in orders.payment_id.
+    // Webhook payment entities expose that same value as payment.order_id,
+    // while payment.id is the separate pay_... transaction ID.
+    const { data: updatedOrder, error } = await admin
       .from('orders')
       .update(update)
-      .eq('payment_id', payment.id);
+      .eq('payment_id', razorpayOrderId)
+      .select('order_number, payment_id, payment_provider, payment_status, status')
+      .maybeSingle();
 
     if (error) {
       console.error('Razorpay webhook DB update failed:', error);
       return json(res, 500, { error: 'Could not update order.' });
     }
 
-    return json(res, 200, { received: true });
+    if (!updatedOrder) {
+      console.warn('Razorpay webhook order not found:', razorpayOrderId);
+      return json(res, 200, { received: true, ignored: true });
+    }
+
+    return json(res, 200, { received: true, order: updatedOrder });
   } catch (error) {
     console.error('Razorpay webhook error:', error);
     return json(res, 400, { error: 'Invalid webhook payload.' });
   }
-};
+}
+
+module.exports = handler;
+module.exports.config = { api: { bodyParser: false } };
