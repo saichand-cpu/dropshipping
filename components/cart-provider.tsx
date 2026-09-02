@@ -18,7 +18,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
       if (saved) {
-        setItems(JSON.parse(saved));
+        const parsed = JSON.parse(saved) as CartItem[];
+        setItems(parsed.map((item) => item.stockQuantity === undefined ? item : { ...item, quantity: Math.min(item.quantity, item.stockQuantity) }).filter((item) => item.quantity > 0));
         if (!localStorage.getItem(STORAGE_KEY)) localStorage.setItem(STORAGE_KEY, saved);
       }
     } catch {
@@ -39,10 +40,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     subtotal: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     addItem: (product) => setItems((current) => {
       const found = current.find((item) => item.id === product.id);
+      if (product.stockQuantity !== undefined && (found?.quantity ?? 0) >= product.stockQuantity) return current;
       return found ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { ...product, quantity: 1 }];
     }),
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
-    setQuantity: (id, quantity) => setItems((current) => quantity <= 0 ? current.filter((item) => item.id !== id) : current.map((item) => item.id === id ? { ...item, quantity } : item)),
+    setQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id !== id ? item : { ...item, quantity: item.stockQuantity === undefined ? quantity : Math.min(quantity, item.stockQuantity) }).filter((item) => item.quantity > 0)),
     clearCart: () => setItems([]),
   }), [items]);
 
