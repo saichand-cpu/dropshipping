@@ -4,9 +4,19 @@
 alter table public.products
   add column if not exists stock_quantity integer not null default 0;
 
-alter table public.products
-  add constraint products_stock_quantity_nonnegative
-  check (stock_quantity >= 0) not valid;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'products_stock_quantity_nonnegative'
+      and conrelid = 'public.products'::regclass
+  ) then
+    alter table public.products
+      add constraint products_stock_quantity_nonnegative
+      check (stock_quantity >= 0) not valid;
+  end if;
+end $$;
 
 alter table public.products
   validate constraint products_stock_quantity_nonnegative;
