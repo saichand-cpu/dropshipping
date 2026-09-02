@@ -6,6 +6,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/cart-provider";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 
 type Order = {
   orderNumber: string;
@@ -37,25 +38,48 @@ export default function CheckoutPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function placeOrder(event: FormEvent<HTMLFormElement>) {
+  async function placeOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!items.length) return;
     setError("");
     setPlacing(true);
 
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Please sign in before placing an order. Your real order is securely linked to your account.");
+        setPlacing(false);
+        return;
+      }
+
+      const { data, error: orderError } = await supabase.rpc("create_order", {
+        p_customer_name: form.name.trim(),
+        p_customer_email: form.email.trim(),
+        p_customer_phone: form.phone.trim(),
+        p_shipping_address: {
+          line1: form.line1.trim(), city: form.city.trim(), state: form.state.trim(),
+          pincode: form.pincode.trim(), landmark: form.landmark.trim(),
+        },
+        p_items: items.map((item) => ({ slug: item.slug, quantity: item.quantity })),
+      });
+
+      if (orderError || !data?.order_number) {
+        setError(orderError?.message || "We couldn't create your order. Please check your details and stock, then try again.");
+        setPlacing(false);
+        return;
+      }
+
+      clearCart();
+      router.push(`/order-success?order=${encodeURIComponent(data.order_number)}`);
+      return;
+    }
+
     const orderNumber = `OC-${Date.now().toString().slice(-8)}`;
     const order: Order = {
-      orderNumber,
-      items,
+      orderNumber, items,
       customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() },
       address: { line1: form.line1.trim(), city: form.city.trim(), state: form.state.trim(), pincode: form.pincode.trim(), landmark: form.landmark.trim() },
-      subtotal,
-      shipping,
-      discount: 0,
-      total,
-      status: "pending",
-      paymentStatus: "pending",
-      createdAt: new Date().toISOString(),
+      subtotal, shipping, discount: 0, total, status: "pending", paymentStatus: "pending", createdAt: new Date().toISOString(),
     };
 
     try {
@@ -78,7 +102,7 @@ export default function CheckoutPage() {
     <div className="grid gap-8 lg:grid-cols-[1.25fr_.75fr]">
       <form onSubmit={placeOrder} className="rounded-[32px] bg-white p-6 shadow-soft sm:p-9">
         <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100"><LockKeyhole size={19}/></div><div><p className="eyebrow">Secure checkout</p><h1 className="mt-1 text-3xl font-black tracking-tight">Delivery details</h1></div></div>
-        <p className="mt-4 text-sm leading-6 text-neutral-500">Enter your details to create your ONECLICK order. Online payment will be connected securely in the next payment phase.</p>
+        <p className="mt-4 text-sm leading-6 text-neutral-500">Enter your details to create your ONECLICK order. Your signed-in order is validated and priced by the database before it is created.</p>
 
         <section className="mt-8"><h2 className="text-base font-bold">Contact information</h2><div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2"><span className="field-label">Full name *</span><input required value={form.name} onChange={(e) => update("name", e.target.value)} className="input-shop" placeholder="Your full name" /></label>
@@ -94,7 +118,7 @@ export default function CheckoutPage() {
           <label><span className="field-label">Landmark <span className="font-normal text-neutral-400">(optional)</span></span><input value={form.landmark} onChange={(e) => update("landmark", e.target.value)} className="input-shop" placeholder="Nearby landmark" /></label>
         </div></section>
 
-        <div className="mt-8 rounded-2xl border border-black/5 bg-[#f7f4ee] p-4"><div className="flex gap-3"><CheckCircle2 size={19} className="mt-0.5 shrink-0"/><div><p className="text-sm font-bold">Payment protection</p><p className="mt-1 text-xs leading-5 text-neutral-500">This demo checkout does not collect card or UPI details. Razorpay will be added with server-side verification before production payments are enabled.</p></div></div></div>
+        <div className="mt-8 rounded-2xl border border-black/5 bg-[#f7f4ee] p-4"><div className="flex gap-3"><CheckCircle2 size={19} className="mt-0.5 shrink-0"/><div><p className="text-sm font-bold">Payment protection</p><p className="mt-1 text-xs leading-5 text-neutral-500">No card or UPI details are collected by this step. Razorpay will be connected with server-side verification in the payment phase.</p></div></div></div>
         {error && <p className="mt-4 text-sm font-semibold text-red-600">{error}</p>}
         <button disabled={placing} className="btn-primary mt-6 w-full">{placing ? "Creating order…" : `Place order · ${formatCurrency(total)}`}</button>
       </form>
